@@ -78,6 +78,8 @@ program token.aleo {
         return (remaining, transferred);
     }
 
+
+
     // The function `transfer_private_to_public` turns a specified token amount from a token record into public tokens for the specified receiver.
     // This function preserves privacy for the sender's record, however it publicly reveals the token receiver and the token amount.
     transition transfer_private_to_public(sender: token, public receiver: address, public amount: u64) -> token {
@@ -127,3 +129,43 @@ program token.aleo {
         Mapping::set(account, sender, sender_amount - amount);
     }
 }
+
+
+
+    /* Burn */
+
+    // The function `burn_public` issues the specified token amount for the token receiver publicly on the network.
+    transition burn_public( public amount: u64) {
+        // Mint the tokens publicly by invoking the computation on-chain.
+        return then finalize(self.caller, amount);
+    }
+
+
+    finalize burn_public(public amount: u64) {
+        // Decrements `account[sender]` by `amount`.
+        // If `account[sender]` does not exist, it will be created.
+        // If `account[sender] - amount` underflows, `transfer_public` is reverted.
+        let owner_amount: u64 = Mapping::get_or_use(account, self.caller, 0u64);
+        Mapping::set(account, self.caller, owner_amount - amount);
+
+    }
+
+
+     transition burn_private(ownerBurn: token, amount: u64) -> (token, token) {
+        // Checks the given token record has sufficient balance.
+        // This `sub` operation is safe, and the proof will fail if an overflow occurs.
+        // `difference` holds the change amount to be returned to sender.
+        let difference: u64 = ownerBurn.amount - amount;
+
+        // Produce a token record with the change amount for the sender.
+        let remaining: token = token {
+            owner: ownerBurn.owner,
+            amount: difference,
+        };
+
+
+        // Output the sender's change record and the receiver's record.
+        return remaining;
+    }
+
+
